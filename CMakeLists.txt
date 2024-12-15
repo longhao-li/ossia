@@ -36,7 +36,7 @@ if(OSSIA_BUILD_SHARED_LIBS)
     # Enable LTO if supported.
     if(OSSIA_ENABLE_LTO)
         include(CheckIPOSupported)
-        check_ipo_supported(RESULT OSSIA_LTO_SUPPORTED OSSIA_LTO_MESSAGE)
+        check_ipo_supported(RESULT OSSIA_LTO_SUPPORTED OUTPUT OSSIA_LTO_MESSAGE)
 
         if(OSSIA_LTO_SUPPORTED)
             set_target_properties(ossia PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -69,7 +69,7 @@ target_include_directories(
 
 # Compiler options.
 if(MSVC)
-    target_compile_options(ossia PRIVATE /W4 /permissive-)
+    target_compile_options(ossia PRIVATE /W4 /permissive- /wd4324)
     if(OSSIA_WARNINGS_AS_ERRORS)
         target_compile_options(ossia PRIVATE /WX)
     endif()

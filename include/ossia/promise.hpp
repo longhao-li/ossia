@@ -19,6 +19,7 @@ class future;
 
 namespace ossia::detail {
 
+/// \class io_context_worker
 /// \brief
 ///   Worker class for IO context.
 class io_context_worker;
@@ -132,6 +133,15 @@ public:
         m_reference_count -= 1;
         if (m_reference_count == 0)
             m_coroutine.destroy();
+    }
+
+    /// \brief
+    ///   Get handle to this coroutine stack frame.
+    /// \return
+    ///   Handle to this coroutine stack frame.
+    [[nodiscard]]
+    auto coroutine() const noexcept -> std::coroutine_handle<> {
+        return m_coroutine;
     }
 
     /// \brief
