@@ -152,16 +152,25 @@ public:
         return *m_worker;
     }
 
+    /// \brief
+    ///   For internal usage. Set the worker that is executing this coroutine stack frame.
+    /// \param[in] worker
+    ///   Reference to the worker that is executing this coroutine stack frame.
+    auto setWorker(io_context_worker &worker) noexcept -> void {
+        m_worker = &worker;
+    }
+
     friend struct final_awaitable;
 
     template <class>
-    friend class task_awaitable;
+    friend class future_awaitable;
 
 private:
     /// \brief
     ///   Reference count of this coroutine stack frame.
     std::uint32_t m_reference_count;
 
+protected:
     /// \brief
     ///   C++20 coroutine handle to this coroutine stack frame.
     std::coroutine_handle<> m_coroutine;
@@ -180,7 +189,6 @@ private:
     ///   Pointer to worker that is executing this coroutine stack frame.
     io_context_worker *m_worker;
 
-protected:
     /// \brief
     ///   Exception thrown by this coroutine.
     std::exception_ptr m_exception;
