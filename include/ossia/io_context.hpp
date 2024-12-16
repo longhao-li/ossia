@@ -3,9 +3,11 @@
 #include "future.hpp"
 
 #include <atomic>
+#include <memory>
 #include <vector>
 
-namespace ossia::detail {
+namespace ossia {
+namespace detail {
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 /// \struct overlapped
@@ -153,4 +155,109 @@ private:
     alignas(64) std::atomic_bool m_should_stop;
 };
 
-} // namespace ossia::detail
+} // namespace detail
+
+/// \class io_context
+/// \brief
+///   IO context for asynchronous IO operations. Static thread pool is used.
+class io_context {
+public:
+    /// \brief
+    ///   Create a new IO context with workers. Number of workers is determined by number of virtual
+    ///   CPU cores.
+    /// \throws std::system_error
+    ///   Thrown if any worker failed to initialize IO muxer.
+    OSSIA_API io_context();
+
+    /// \brief
+    ///   Create a new IO context with specified number of workers.
+    /// \param count
+    ///   Expected number of workers to be created. Number of workers will be determined by number
+    ///   of virtual CPU cores if this value is zero.
+    /// \throws std::system_error
+    ///   Thrown if any worker failed to initialize IO muxer.
+    OSSIA_API explicit io_context(std::size_t count);
+
+    /// \brief
+    ///   \c io_context is not copyable.
+    io_context(const io_context &other) = delete;
+
+    /// \brief
+    ///   \c io_context is not movable.
+    io_context(io_context &&other) = delete;
+
+    /// \brief
+    ///   Stop all workers and destroy this context.
+    OSSIA_API ~io_context();
+
+    /// \brief
+    ///   \c io_context is not copyable.
+    auto operator=(const io_context &other) = delete;
+
+    /// \brief
+    ///   \c io_context is not movable.
+    auto operator=(io_context &&other) = delete;
+
+    /// \brief
+    ///   Checks if this IO context is running.
+    /// \retval true
+    ///   This IO context is running.
+    /// \retval false
+    ///   This IO context is not running.
+    [[nodiscard]]
+    auto is_running() const noexcept -> bool {
+        return m_is_running.load(std::memory_order_relaxed);
+    }
+
+    /// \brief
+    ///   Get number of workers of this IO context.
+    /// \return
+    ///   Number of workers of this IO context.
+    [[nodiscard]]
+    auto worker_count() const noexcept -> std::size_t {
+        return m_worker_count;
+    }
+
+    /// \brief
+    ///   Start all workers in this IO context. This method will block current thread until all
+    ///   workers are stopped.
+    OSSIA_API auto run() noexcept -> void;
+
+    /// \brief
+    ///   Request all workers in this IO context to stop. This method only sets the stop flag and
+    ///   does not block. It may take some time to stop all workers.
+    OSSIA_API auto stop() noexcept -> void;
+
+    /// \brief
+    ///   Dispatch tasks into all workers in this IO context. This method is not concurrent safe.
+    ///   You are not supposed to invoke this method for running context.
+    /// \tparam Func
+    ///   Function type that generates task for workers. Return type for the function must be a
+    ///   future type.
+    /// \tparam Args
+    ///   Argument types for the function.
+    /// \param func
+    ///   Function that generates task for workers.
+    /// \param args
+    ///   Arguments for the function.
+    template <class Func, class... Args>
+    auto dispatch(Func &&func, Args &...args) noexcept -> void {
+        for (std::size_t i = 0; i < worker_count(); ++i)
+            m_workers[i].schedule(func(args...));
+    }
+
+private:
+    /// \brief
+    ///   Running flag for this IO context.
+    std::atomic_bool m_is_running;
+
+    /// \brief
+    ///   Worker count for this IO context.
+    std::size_t m_worker_count;
+
+    /// \brief
+    ///   Worker array.
+    std::unique_ptr<detail::io_context_worker[]> m_workers;
+};
+
+} // namespace ossia

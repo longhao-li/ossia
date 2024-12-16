@@ -14,6 +14,7 @@
 
 #include <cassert>
 #include <system_error>
+#include <thread>
 
 using namespace ossia;
 using namespace ossia::detail;
@@ -106,4 +107,39 @@ auto io_context_worker::schedule(promise_base *promise) noexcept -> void {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     PostQueuedCompletionStatus(m_muxer, 0, 0, nullptr);
 #endif
+}
+
+io_context::io_context()
+    : m_is_running(),
+      m_worker_count(std::max<std::size_t>(1, std::thread::hardware_concurrency())),
+      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {}
+
+io_context::io_context(std::size_t count)
+    : m_is_running(),
+      m_worker_count(count ? count : std::max<std::size_t>(1, std::thread::hardware_concurrency())),
+      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {}
+
+io_context::~io_context() {
+    assert(!is_running());
+}
+
+auto io_context::run() noexcept -> void {
+    if (m_is_running.exchange(true, std::memory_order_relaxed)) [[unlikely]]
+        return;
+
+    std::vector<std::thread> threads;
+    threads.reserve(worker_count());
+
+    for (std::size_t i = 0; i < worker_count(); ++i)
+        threads.emplace_back([this, i]() { m_workers[i].run(); });
+
+    for (auto &thread : threads)
+        thread.join();
+
+    m_is_running.store(false, std::memory_order_relaxed);
+}
+
+auto io_context::stop() noexcept -> void {
+    for (std::size_t i = 0; i < worker_count(); ++i)
+        m_workers[i].stop();
 }
