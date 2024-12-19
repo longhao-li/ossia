@@ -22,6 +22,51 @@ constexpr auto to_network_endian(std::uint16_t value) noexcept -> std::uint16_t 
     }
 }
 
+/// \brief
+///   Convert a 32-bit value from host endian into network endian.
+/// \param value
+///   The value to be converted into network endian.
+/// \return
+///   The value converted into network endian.
+[[nodiscard]]
+constexpr auto to_network_endian(std::uint32_t value) noexcept -> std::uint32_t {
+    if constexpr (std::endian::native == std::endian::little) {
+        return (value >> 24) | ((value >> 8) & 0xFF00) | ((value << 8) & 0xFF0000) | (value << 24);
+    } else {
+        return value;
+    }
+}
+
+/// \brief
+///   Convert a 16-bit value from network endian into host endian.
+/// \param value
+///   The value to be converted into host endian.
+/// \return
+///   The value converted into host endian.
+[[nodiscard]]
+constexpr auto to_host_endian(std::uint16_t value) noexcept -> std::uint16_t {
+    if constexpr (std::endian::native == std::endian::little) {
+        return (value >> 8) | (value << 8);
+    } else {
+        return value;
+    }
+}
+
+/// \brief
+///   Convert a 32-bit value from network endian into host endian.
+/// \param value
+///   The value to be converted into host endian.
+/// \return
+///   The value converted into host endian.
+[[nodiscard]]
+constexpr auto to_host_endian(std::uint32_t value) noexcept -> std::uint32_t {
+    if constexpr (std::endian::native == std::endian::little) {
+        return (value >> 24) | ((value >> 8) & 0xFF00) | ((value << 8) & 0xFF0000) | (value << 24);
+    } else {
+        return value;
+    }
+}
+
 } // namespace detail
 
 /// \class ip_address
@@ -111,7 +156,7 @@ public:
 
     /// \brief
     ///   \c ip_address is trivially destructible.
-    ~ip_address() noexcept = default;
+    ~ip_address() = default;
 
     /// \brief
     ///   \c ip_address is trivially copyable.
@@ -274,14 +319,14 @@ public:
         if (!is_ipv6())
             return false;
 
-        return m_addr.v6.u16[0] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[1] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[2] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[3] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[4] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[5] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[6] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[7] == detail::to_network_endian(1);
+        return m_addr.v6.u16[0] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[1] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[2] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[3] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[4] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[5] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[6] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[7] == detail::to_network_endian(std::uint16_t(1));
     }
 
     /// \brief
@@ -326,12 +371,12 @@ public:
         if (!is_ipv6())
             return false;
 
-        return m_addr.v6.u16[0] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[1] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[2] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[3] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[4] == detail::to_network_endian(0) &&
-               m_addr.v6.u16[5] == detail::to_network_endian(0xFFFF);
+        return m_addr.v6.u16[0] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[1] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[2] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[3] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[4] == detail::to_network_endian(std::uint16_t(0)) &&
+               m_addr.v6.u16[5] == detail::to_network_endian(std::uint16_t(0xFFFF));
     }
 
     /// \brief
@@ -430,5 +475,177 @@ inline constexpr ip_address ipv6_loopback{0, 0, 0, 0, 0, 0, 0, 1};
 /// \brief
 ///   IPv6 any address.
 inline constexpr ip_address ipv6_any{0, 0, 0, 0, 0, 0, 0, 0};
+
+/// \class inet_address
+/// \brief
+///   Wrapper class for Internet socket address. \c inet_address is a trivial class. This class
+///   could be directly passed as \c sockaddr to system socket API.
+class inet_address {
+public:
+    /// \brief
+    ///   Create an empty Internet socket address. An empty \c inet_address object is trivially
+    ///   initialized with random values and should not be used for network operations.
+    inet_address() noexcept = default;
+
+    /// \brief
+    ///   Create an Internet socket address with IP address and port number.
+    /// \param ip
+    ///   The IP address of the Internet socket address.
+    /// \param port
+    ///   The port number of the Internet socket address in host endian.
+    OSSIA_API inet_address(const ossia::ip_address &ip, std::uint16_t port) noexcept;
+
+    /// \brief
+    ///   \c inet_address is trivially copyable.
+    inet_address(const inet_address &other) noexcept = default;
+
+    /// \brief
+    ///   \c inet_address is trivially movable.
+    inet_address(inet_address &&other) noexcept = default;
+
+    /// \brief
+    ///   \c inet_address is trivially destructible.
+    ~inet_address() = default;
+
+    /// \brief
+    ///   \c inet_address is trivially copyable.
+    auto operator=(const inet_address &other) noexcept -> inet_address & = default;
+
+    /// \brief
+    ///   \c inet_address is trivially movable.
+    auto operator=(inet_address &&other) noexcept -> inet_address & = default;
+
+    /// \brief
+    ///   Checks if this is an IPv4 Internet socket address.
+    /// \note
+    ///   Empty \c inet_address object may be neither IPv4 nor IPv6.
+    /// \retval true
+    ///   This is an IPv4 Internet socket address.
+    /// \retval false
+    ///   This is not an IPv4 Internet socket address.
+    [[nodiscard]]
+    OSSIA_API auto is_ipv4() const noexcept -> bool;
+
+    /// \brief
+    ///   Checks if this is an IPv6 Internet socket address.
+    /// \note
+    ///   Empty \c inet_address object may be neither IPv4 nor IPv6.
+    /// \retval true
+    ///   This is an IPv6 Internet socket address.
+    /// \retval false
+    ///   This is not an IPv6 Internet socket address.
+    [[nodiscard]]
+    OSSIA_API auto is_ipv6() const noexcept -> bool;
+
+    /// \brief
+    ///   Get IP address of this Internet socket address. It is undefined behavior if this is an
+    ///   empty \c inet_address object.
+    /// \return
+    ///   The IP address of this Internet socket address.
+    [[nodiscard]]
+    OSSIA_API auto ip_address() const noexcept -> ossia::ip_address;
+
+    /// \brief
+    ///   Set IP address of this Internet socket address.
+    /// \param ip
+    ///   The IP address to be set.
+    OSSIA_API auto set_ip_address(const ossia::ip_address &ip) noexcept -> void;
+
+    /// \brief
+    ///   Get port number of this Internet socket address.
+    /// \return
+    ///   The port number of this Internet socket address in host endian.
+    [[nodiscard]]
+    auto port() const noexcept -> std::uint16_t {
+        return detail::to_host_endian(m_port);
+    }
+
+    /// \brief
+    ///   Set port number of this Internet socket address.
+    /// \param port
+    ///   The port number to be set in host endian.
+    auto set_port(std::uint16_t port) noexcept -> void {
+        m_port = detail::to_network_endian(port);
+    }
+
+    /// \brief
+    ///   Get IPv6 flow information of this Internet socket address. It is undefined behavior if
+    ///   this is not an IPv6 Internet socket address.
+    /// \return
+    ///   The flow information of this Internet socket address in host endian.
+    [[nodiscard]]
+    auto flowinfo() const noexcept -> std::uint32_t {
+        return detail::to_host_endian(m_addr.v6.flowinfo);
+    }
+
+    /// \brief
+    ///   Set IPv6 flow information of this Internet socket address. It is undefined behavior if
+    ///   this is not an IPv6 Internet socket address.
+    /// \param flowinfo
+    ///   The flow information to be set in host endian.
+    auto set_flowinfo(std::uint32_t flowinfo) noexcept -> void {
+        m_addr.v6.flowinfo = detail::to_network_endian(flowinfo);
+    }
+
+    /// \brief
+    ///   Get IPv6 scope ID of this Internet socket address. It is undefined behavior if this is
+    ///   not an IPv6 Internet socket address.
+    /// \return
+    ///   The scope ID of this Internet socket address in host endian.
+    [[nodiscard]]
+    auto scope_id() const noexcept -> std::uint32_t {
+        return detail::to_host_endian(m_addr.v6.scope_id);
+    }
+
+    /// \brief
+    ///   Set IPv6 scope ID of this Internet socket address. It is undefined behavior if this is
+    ///   not an IPv6 Internet socket address.
+    /// \param scope_id
+    ///   The scope ID to be set in host endian.
+    auto set_scope_id(std::uint32_t scope_id) noexcept -> void {
+        m_addr.v6.scope_id = detail::to_network_endian(scope_id);
+    }
+
+    /// \brief
+    ///   Checks if this Internet socket address is the same as another one.
+    /// \param other
+    ///   The Internet socket address to be compared with.
+    /// \retval true
+    ///   This Internet socket address is the same as \p other.
+    /// \retval false
+    ///   This Internet socket address is different from \p other.
+    [[nodiscard]]
+    OSSIA_API auto operator==(const inet_address &other) const noexcept -> bool;
+
+    /// \brief
+    ///   Checks if this Internet socket address is different from another one.
+    /// \param other
+    ///   The Internet socket address to be compared with.
+    /// \retval true
+    ///   This Internet socket address is different from \p other.
+    /// \retval false
+    ///   This Internet socket address is the same as \p other.
+    [[nodiscard]]
+    OSSIA_API auto operator!=(const inet_address &other) const noexcept -> bool;
+
+private:
+    std::uint16_t m_family;
+    std::uint16_t m_port;
+    union {
+        struct {
+            union {
+                std::uint8_t  u8[4];
+                std::uint16_t u16[2];
+                std::uint32_t u32[1];
+            } address;
+            std::uint8_t zero[8];
+        } v4;
+        struct {
+            std::uint32_t flowinfo;
+            std::uint16_t address[8];
+            std::uint32_t scope_id;
+        } v6;
+    } m_addr;
+};
 
 } // namespace ossia
