@@ -122,6 +122,14 @@ public:
         return m_muxer;
     }
 
+    /// \brief
+    ///   For internal usage. Get the current worker of this thread.
+    /// \return
+    ///   Current worker of this thread. This value is \c nullptr if the current thread is not
+    ///   running in any worker.
+    [[nodiscard]]
+    OSSIA_API static auto current() noexcept -> io_context_worker *;
+
 private:
     /// \brief
     ///   For internal usage. Schedule a task to be executed in this worker. This method is not

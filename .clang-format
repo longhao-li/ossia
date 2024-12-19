@@ -65,7 +65,6 @@ BreakAdjacentStringLiterals: true
 BreakAfterAttributes: Leave
 BreakAfterReturnType: None
 BreakTemplateDeclarations: Yes
-BreakBeforeBinaryOperators: All
 BreakBeforeConceptDeclarations: Always
 BreakBeforeInlineASMColon: OnlyMultiline
 BreakBeforeTernaryOperators: true

@@ -19,11 +19,6 @@ class future;
 
 namespace ossia::detail {
 
-/// \class io_context_worker
-/// \brief
-///   Worker class for IO context.
-class io_context_worker;
-
 /// \struct final_awaitable
 /// \brief
 ///   For internal usage. Manage the coroutine call stack frames once the coroutine is done.
@@ -68,7 +63,6 @@ public:
           m_coroutine(),
           m_parent(nullptr),
           m_stack_bottom(nullptr),
-          m_worker(nullptr),
           m_exception() {}
 
     /// \brief
@@ -153,23 +147,6 @@ public:
         return *m_stack_bottom;
     }
 
-    /// \brief
-    ///   Get worker that is executing this coroutine stack frame.
-    /// \return
-    ///   Reference to the worker that is executing this coroutine stack frame.
-    [[nodiscard]]
-    auto worker() const noexcept -> io_context_worker & {
-        return *m_worker;
-    }
-
-    /// \brief
-    ///   For internal usage. Set the worker that is executing this coroutine stack frame.
-    /// \param[in] worker
-    ///   Reference to the worker that is executing this coroutine stack frame.
-    auto setWorker(io_context_worker &worker) noexcept -> void {
-        m_worker = &worker;
-    }
-
     friend struct final_awaitable;
 
     template <class>
@@ -194,10 +171,6 @@ protected:
     /// \brief
     ///   Pointer to the bottom of the coroutine stack.
     promise_base *m_stack_bottom;
-
-    /// \brief
-    ///   Pointer to worker that is executing this coroutine stack frame.
-    io_context_worker *m_worker;
 
     /// \brief
     ///   Exception thrown by this coroutine.

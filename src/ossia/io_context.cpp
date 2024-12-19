@@ -7,6 +7,7 @@
 #    ifndef NOMINMAX
 #        define NOMINMAX
 #    endif
+#    include <WinSock2.h>
 #    include <Windows.h>
 #else
 #    error "Unsupported operating system"
@@ -18,6 +19,10 @@
 
 using namespace ossia;
 using namespace ossia::detail;
+
+/// \brief
+///   Current worker for the calling thread.
+static thread_local io_context_worker *current_worker;
 
 io_context_worker::io_context_worker()
     : m_is_running(),
@@ -44,6 +49,8 @@ io_context_worker::~io_context_worker() {
 auto io_context_worker::run() noexcept -> void {
     if (m_is_running.exchange(true, std::memory_order_relaxed)) [[unlikely]]
         return;
+
+    current_worker = this;
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     m_should_stop.store(false, std::memory_order_relaxed);
@@ -97,11 +104,16 @@ auto io_context_worker::run() noexcept -> void {
 
     m_thread_id.store(0, std::memory_order_relaxed);
 #endif
+
+    current_worker = nullptr;
     m_is_running.store(false, std::memory_order_relaxed);
 }
 
+auto io_context_worker::current() noexcept -> io_context_worker * {
+    return current_worker;
+}
+
 auto io_context_worker::schedule(promise_base *promise) noexcept -> void {
-    promise->setWorker(*this);
     m_tasks.push_back(promise);
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
@@ -112,15 +124,32 @@ auto io_context_worker::schedule(promise_base *promise) noexcept -> void {
 io_context::io_context()
     : m_is_running(),
       m_worker_count(std::max<std::size_t>(1, std::thread::hardware_concurrency())),
-      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {}
+      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    WSADATA data;
+    if (WSAStartup(MAKEWORD(2, 2), &data) != 0) [[unlikely]]
+        throw std::system_error(WSAGetLastError(), std::system_category(),
+                                "Failed to start WinSock");
+#endif
+}
 
 io_context::io_context(std::size_t count)
     : m_is_running(),
       m_worker_count(count ? count : std::max<std::size_t>(1, std::thread::hardware_concurrency())),
-      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {}
+      m_workers(std::make_unique<io_context_worker[]>(m_worker_count)) {
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    WSADATA data;
+    if (WSAStartup(MAKEWORD(2, 2), &data) != 0) [[unlikely]]
+        throw std::system_error(WSAGetLastError(), std::system_category(),
+                                "Failed to start WinSock");
+#endif
+}
 
 io_context::~io_context() {
     assert(!is_running());
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+    WSACleanup();
+#endif
 }
 
 auto io_context::run() noexcept -> void {

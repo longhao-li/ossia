@@ -51,7 +51,6 @@ public:
 
         promise.m_parent       = &parent;
         promise.m_stack_bottom = parent.m_stack_bottom;
-        promise.m_worker       = parent.m_worker;
 
         return m_coroutine;
     }

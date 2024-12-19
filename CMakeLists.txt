@@ -80,6 +80,15 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     endif()
 endif()
 
+# Link system libraries.
+if(WIN32)
+    # Link Windows socket library.
+    target_link_libraries(ossia PRIVATE ws2_32)
+elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # Link liburing. We assume that liburing is a system library.
+    target_link_libraries(ossia PRIVATE uring)
+endif()
+
 # Configure the package.
 include(GNUInstallDirs)
 
