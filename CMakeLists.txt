@@ -58,7 +58,7 @@ endif()
 add_library(ossia::ossia ALIAS ossia)
 
 # Enable C++20 for coroutine support.
-target_compile_features(ossia PUBLIC cxx_std_20)
+target_compile_features(ossia PUBLIC cxx_std_23)
 
 # Include directories.
 target_include_directories(
@@ -83,7 +83,7 @@ endif()
 # Link system libraries.
 if(WIN32)
     # Link Windows socket library.
-    target_link_libraries(ossia PRIVATE ws2_32)
+    target_link_libraries(ossia PRIVATE ws2_32 mswsock)
 elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
     # Link liburing. We assume that liburing is a system library.
     target_link_libraries(ossia PRIVATE uring)
