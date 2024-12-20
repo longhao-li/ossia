@@ -228,6 +228,7 @@ public:
     ///   Move assignment operator of \c tcp_stream object.
     /// \param[in, out] other
     ///   The \c tcp_stream object to move. The moved \c tcp_stream object will be empty.
+    ///   Self-assignment is handled but not recommended.
     /// \return
     ///   Reference to this \c tcp_stream object.
     OSSIA_API auto operator=(tcp_stream &&other) noexcept -> tcp_stream &;

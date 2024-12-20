@@ -20,7 +20,7 @@ inline constexpr std::uintptr_t invalid_socket = static_cast<std::uintptr_t>(-1)
 auto tcp_stream::connect_awaitable::await_resume() const noexcept -> std::error_code {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     if (m_ovlp.error == 0) {
-        if (m_stream->m_socket != INVALID_SOCKET)
+        if (m_stream->m_socket != invalid_socket)
             closesocket(static_cast<SOCKET>(m_stream->m_socket));
 
         m_stream->m_socket  = m_socket;
@@ -29,7 +29,7 @@ auto tcp_stream::connect_awaitable::await_resume() const noexcept -> std::error_
         return std::error_code();
     }
 
-    if (m_socket != INVALID_SOCKET)
+    if (m_socket != invalid_socket)
         closesocket(static_cast<SOCKET>(m_socket));
 
     return std::error_code(static_cast<int>(m_ovlp.error), std::system_category());
@@ -42,7 +42,7 @@ auto tcp_stream::connect_awaitable::await_suspend() noexcept -> bool {
     SOCKET s    = WSASocketW(addr->sa_family, SOCK_STREAM, IPPROTO_TCP, nullptr, 0,
                              WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
 
-    if (s == INVALID_SOCKET) [[unlikely]] {
+    if (s == invalid_socket) [[unlikely]] {
         m_ovlp.error = WSAGetLastError();
         return false;
     }
@@ -204,7 +204,7 @@ auto tcp_stream::connect(const inet_address &address) noexcept -> std::error_cod
     SOCKET s    = WSASocketW(addr->sa_family, SOCK_STREAM, IPPROTO_TCP, nullptr, 0,
                              WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
 
-    if (s == INVALID_SOCKET) [[unlikely]]
+    if (s == invalid_socket) [[unlikely]]
         return std::error_code(WSAGetLastError(), std::system_category());
 
     { // Register to IOCP.
