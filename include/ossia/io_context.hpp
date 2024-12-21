@@ -268,4 +268,16 @@ private:
     std::unique_ptr<detail::io_context_worker[]> m_workers;
 };
 
+/// \brief
+///   Schedule a new task into current thread worker. This method could only be called in worker
+///   threads.
+/// \tparam T
+///   Return type of the scheduled task. Usually this should be \c void.
+/// \param task
+///   The task to be scheduled. This task should be the coroutine stack bottom task.
+template <class T>
+auto schedule(future<T> task) noexcept -> void {
+    detail::io_context_worker::current()->schedule(std::move(task));
+}
+
 } // namespace ossia

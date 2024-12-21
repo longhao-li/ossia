@@ -70,7 +70,7 @@ auto tcp_server::accept_awaitable::await_suspend() noexcept -> bool {
     // Try to accept a new incoming connection.
     // FIXME: Is it safe to make bytes a temporary variable?
     DWORD bytes = 0;
-    if (accept_ex(m_server->m_socket, m_socket, &m_address, 0, 0, sizeof(m_address), &bytes,
+    if (accept_ex(m_server->m_socket, m_socket, &m_address, 0, 0, sizeof(m_address) + 16, &bytes,
                   reinterpret_cast<LPOVERLAPPED>(&m_ovlp)) == TRUE) {
         m_ovlp.error = 0;
         return false;

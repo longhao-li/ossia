@@ -38,7 +38,7 @@ auto tcp_stream::connect_awaitable::await_resume() const noexcept -> std::error_
 
 auto tcp_stream::connect_awaitable::await_suspend() noexcept -> bool {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
-    auto  *addr = reinterpret_cast<sockaddr *>(&m_address);
+    auto  *addr = reinterpret_cast<const sockaddr *>(m_address);
     SOCKET s    = WSASocketW(addr->sa_family, SOCK_STREAM, IPPROTO_TCP, nullptr, 0,
                              WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
 
@@ -48,6 +48,36 @@ auto tcp_stream::connect_awaitable::await_suspend() noexcept -> bool {
     }
 
     m_socket = s;
+
+    // ConnectEx requires manually binding.
+    if (addr->sa_family == AF_INET) {
+        sockaddr_in local{
+            .sin_family = AF_INET,
+            .sin_port   = 0,
+            .sin_addr   = INADDR_ANY,
+            .sin_zero   = {},
+        };
+
+        if (bind(s, reinterpret_cast<sockaddr *>(&local), sizeof(local)) == SOCKET_ERROR)
+            [[unlikely]] {
+            m_ovlp.error = WSAGetLastError();
+            return false;
+        }
+    } else {
+        sockaddr_in6 local{
+            .sin6_family   = AF_INET6,
+            .sin6_port     = 0,
+            .sin6_flowinfo = 0,
+            .sin6_addr     = in6addr_any,
+            .sin6_scope_id = 0,
+        };
+
+        if (bind(s, reinterpret_cast<sockaddr *>(&local), sizeof(local)) == SOCKET_ERROR)
+            [[unlikely]] {
+            m_ovlp.error = WSAGetLastError();
+            return false;
+        }
+    }
 
     { // Register to IOCP.
         auto *worker = io_context_worker::current();
@@ -122,13 +152,20 @@ auto tcp_stream::send_awaitable::await_suspend() noexcept -> bool {
 
     // Send returned immediately. Do not suspend this coroutine.
     if (WSASend(m_socket, &buffer, 1, &bytes, 0, reinterpret_cast<LPOVERLAPPED>(&m_ovlp),
-                nullptr) == TRUE) {
+                nullptr) == TRUE) [[unlikely]] {
         m_ovlp.error             = 0;
         m_ovlp.bytes_transferred = bytes;
         return false;
     }
 
     DWORD error = WSAGetLastError();
+
+    if (error == 0) {
+        m_ovlp.error             = 0;
+        m_ovlp.bytes_transferred = bytes;
+        return false;
+    }
+
     if (error == WSA_IO_PENDING) [[likely]]
         return true;
 
@@ -158,13 +195,20 @@ auto tcp_stream::receive_awaitable::await_suspend() noexcept -> bool {
 
     // Receive returned immediately. Do not suspend this coroutine.
     if (WSARecv(m_socket, &buffer, 1, &bytes, &flags, reinterpret_cast<LPOVERLAPPED>(&m_ovlp),
-                nullptr) == TRUE) {
+                nullptr) == TRUE) [[unlikely]] {
         m_ovlp.error             = 0;
         m_ovlp.bytes_transferred = bytes;
         return false;
     }
 
     DWORD error = WSAGetLastError();
+
+    if (error == 0) {
+        m_ovlp.error             = 0;
+        m_ovlp.bytes_transferred = bytes;
+        return false;
+    }
+
     if (error == WSA_IO_PENDING) [[likely]]
         return true;
 

@@ -155,6 +155,14 @@ public:
               m_size(size) {}
 
         /// \brief
+        ///   C++20 coroutine API method. Always execute \c await_suspend().
+        /// \return
+        ///   This function always returns \c false.
+        static constexpr auto await_ready() noexcept -> bool {
+            return false;
+        }
+
+        /// \brief
         ///   Prepare for async receive operation and suspend the coroutine.
         /// \tparam T
         ///   Type of promise of current coroutine.

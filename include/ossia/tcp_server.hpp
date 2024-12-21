@@ -23,7 +23,8 @@ public:
             : m_ovlp(),
               m_server(&server),
               m_socket(),
-              m_address() {}
+              m_address(),
+              m_padding{} {}
 
         /// \brief
         ///   C++20 coroutine API method. Always execute \c await_suspend().
@@ -66,6 +67,7 @@ public:
         const tcp_server  *m_server;
         std::uintptr_t     m_socket;
         inet_address       m_address;
+        char               m_padding[16];
     };
 
 public:
