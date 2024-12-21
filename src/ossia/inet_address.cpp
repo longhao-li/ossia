@@ -3,6 +3,8 @@
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #    include <WS2tcpip.h>
 #    include <WinSock2.h>
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+#    include <arpa/inet.h>
 #endif
 
 #include <cstring>

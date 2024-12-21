@@ -2,6 +2,8 @@
 
 #include "promise.hpp"
 
+#include <utility>
+
 namespace ossia {
 namespace detail {
 

@@ -4,6 +4,9 @@
 #    include <WS2tcpip.h>
 #    include <WinSock2.h>
 #    include <mswsock.h>
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+#    include <liburing.h>
+#    include <netinet/in.h>
 #endif
 
 #include <cassert>
@@ -29,6 +32,11 @@ auto tcp_server::accept_awaitable::await_resume() const noexcept
     }
 
     return tcp_stream(m_socket, m_address);
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+    if (m_ovlp.result < 0) [[unlikely]]
+        return std::unexpected(std::error_code(-m_ovlp.result, std::system_category()));
+
+    return tcp_stream(m_ovlp.result, m_address);
 #endif
 }
 
@@ -82,6 +90,34 @@ auto tcp_server::accept_awaitable::await_suspend() noexcept -> bool {
 
     m_ovlp.error = error;
     return false;
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+    // Prepare for async accept operation.
+    auto *worker = io_context_worker::current();
+    assert(worker != nullptr);
+
+    io_uring     *ring = static_cast<io_uring *>(worker->muxer());
+    io_uring_sqe *sqe  = io_uring_get_sqe(ring);
+    while (sqe == nullptr) [[unlikely]] {
+        int result = io_uring_submit(ring);
+        if (result < 0) [[unlikely]] {
+            m_ovlp.result = result;
+            return false;
+        }
+
+        sqe = io_uring_get_sqe(ring);
+    }
+
+    // m_socket is not used on Linux. A dirty hack, but works.
+    sockaddr  *addr    = reinterpret_cast<sockaddr *>(&m_address);
+    socklen_t *addrlen = reinterpret_cast<socklen_t *>(&m_socket);
+    *addrlen           = sizeof(m_address);
+
+    io_uring_prep_accept(sqe, m_server->m_socket, addr, addrlen, SOCK_CLOEXEC);
+    io_uring_sqe_set_flags(sqe, 0);
+    io_uring_sqe_set_data(sqe, &m_ovlp);
+
+    // IO tasks will be submitted by the worker after this coroutine is suspended.
+    return true;
 #endif
 }
 
@@ -201,6 +237,53 @@ auto tcp_server::bind(const inet_address &address) noexcept -> std::error_code {
     m_accept_ex = reinterpret_cast<void *>(accept_ex);
 
     return std::error_code();
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+    // Create a new socket for the server.
+    auto     *addr    = reinterpret_cast<const sockaddr *>(&address);
+    socklen_t addrlen = addr->sa_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+    int       s       = ::socket(addr->sa_family, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_TCP);
+
+    if (s == -1) [[unlikely]]
+        return std::error_code(errno, std::system_category());
+
+    { // Enable SO_REUSEADDR option.
+        int value = 1;
+        if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) == -1) {
+            int error = errno;
+            ::close(s);
+            return std::error_code(error, std::system_category());
+        }
+    }
+
+    { // Enable SO_REUSEPORT option.
+        int value = 1;
+        if (setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &value, sizeof(value)) == -1) {
+            int error = errno;
+            ::close(s);
+            return std::error_code(error, std::system_category());
+        }
+    }
+
+    // Bind the socket to the specified address.
+    if (::bind(s, addr, addrlen) == -1) [[unlikely]] {
+        int error = errno;
+        ::close(s);
+        return std::error_code(error, std::system_category());
+    }
+
+    // Start listening on the socket.
+    if (::listen(s, SOMAXCONN) == -1) [[unlikely]] {
+        int error = errno;
+        ::close(s);
+        return std::error_code(error, std::system_category());
+    }
+
+    close();
+
+    m_socket  = static_cast<std::uintptr_t>(s);
+    m_address = address;
+
+    return std::error_code();
 #endif
 }
 
@@ -214,6 +297,15 @@ auto tcp_server::accept() const noexcept -> std::expected<tcp_stream, std::error
         return std::unexpected(std::error_code(WSAGetLastError(), std::system_category()));
 
     return tcp_stream(s, address);
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+    inet_address address;
+    socklen_t    addrlen = sizeof(address);
+
+    int s = ::accept(static_cast<int>(m_socket), reinterpret_cast<sockaddr *>(&address), &addrlen);
+    if (s == -1) [[unlikely]]
+        return std::unexpected(std::error_code(errno, std::system_category()));
+
+    return tcp_stream(static_cast<std::uintptr_t>(s), address);
 #endif
 }
 
@@ -221,6 +313,11 @@ auto tcp_server::close() noexcept -> void {
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
     if (m_socket != invalid_socket) {
         closesocket(static_cast<SOCKET>(m_socket));
+        m_socket = invalid_socket;
+    }
+#elif defined(__linux) || defined(__linux__) || defined(__gnu_linux__)
+    if (m_socket != invalid_socket) {
+        ::close(static_cast<int>(m_socket));
         m_socket = invalid_socket;
     }
 #endif

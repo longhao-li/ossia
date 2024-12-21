@@ -24,7 +24,7 @@ if(OSSIA_BUILD_SHARED_LIBS)
         target_compile_definitions(ossia PRIVATE "OSSIA_API=__declspec(dllexport)")
         target_compile_definitions(ossia INTERFACE "OSSIA_API=__declspec(dllimport)")
     else()
-        target_compile_definitions(ossia PRIVATE "OSSIA_API=__attribute__((visibility(\"default\")))")
+        target_compile_definitions(ossia PUBLIC "OSSIA_API=__attribute__((visibility(\"default\")))")
     endif()
 
     set_target_properties(
