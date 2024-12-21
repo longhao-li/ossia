@@ -1,4 +1,4 @@
-#include "ossia/network.hpp"
+#include "ossia/inet_address.hpp"
 
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #    include <WS2tcpip.h>

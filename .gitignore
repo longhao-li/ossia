@@ -48,3 +48,24 @@ compile_flags.txt
 
 # macOS System Files
 .DS_Store
+
+# Visual Studio Project Files
+.vs
+
+# Visual Studio CMake Configuration Files
+CMakeSettings.json
+
+# Visual Studio Build Results.
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/

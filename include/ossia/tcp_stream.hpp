@@ -1,7 +1,7 @@
 #pragma once
 
+#include "inet_address.hpp"
 #include "io_context.hpp"
-#include "network.hpp"
 
 #include <chrono>
 #include <expected>
